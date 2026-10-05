@@ -2,8 +2,9 @@
 
 It checks Claude API access with a models lookup (free, and it proves both the
 credentials and access to the default model), Cua Driver and its macOS grants
-for --on mac, Docker for --on sandbox, and PyObjC for the aura. Each failed
-check says how to fix it. Nothing here changes the system.
+for --on mac, Docker for --on sandbox, and PyObjC for the aura. Laya, behind
+the optional guard, is reported but never fails the check. Each failed check
+says how to fix it. Nothing here changes the system.
 """
 
 from __future__ import annotations
@@ -15,6 +16,8 @@ from dataclasses import dataclass
 import anthropic
 from anthropic import AsyncAnthropic
 
+from deskhand.laya import server as laya_server
+from deskhand.laya.client import Calibration
 from deskhand.models import ModelSpec
 from deskhand.targets.mac import GRANT_HINT, INSTALL_HINT, find_driver
 
@@ -77,5 +80,27 @@ def check_aura() -> Check:
     return Check(name, True, "AppKit and Quartz available")
 
 
+def check_laya() -> Check:
+    """Optional: always ok, says whether the guard can run and is on by default."""
+    name = "Guard (Laya, optional)"
+    if not laya_server.installed():
+        return Check(name, True, "not set up; `deskhand laya setup` adds it")
+    calibration = Calibration.load()
+    if not calibration.fits:
+        return Check(name, True, "installed, not measured; run `deskhand laya eval`")
+    state = (
+        "on by default for the Mac"
+        if calibration.passed
+        else "off (below the bar; --guard forces it)"
+    )
+    return Check(name, True, f"installed, {state}")
+
+
 async def run_checks(spec: ModelSpec) -> list[Check]:
-    return [await check_claude(spec), check_driver(), check_docker(), check_aura()]
+    return [
+        await check_claude(spec),
+        check_driver(),
+        check_docker(),
+        check_aura(),
+        check_laya(),
+    ]

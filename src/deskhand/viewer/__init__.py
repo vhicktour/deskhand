@@ -10,37 +10,19 @@ MCP server and the CLI can call show() cheaply.
 
 from __future__ import annotations
 
-import fcntl
 import subprocess
 import sys
 from typing import TextIO
 
-from deskhand import sandboxes
+from deskhand import locks, sandboxes
 from deskhand.paths import home, viewer_lock_file
 
 _held: TextIO | None = None  # viewer.lock, open and locked while this process is the viewer
 
 
-def _take() -> TextIO | None:
-    """viewer.lock, locked by us, or None when another process has it."""
-    path = viewer_lock_file()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    lock = path.open("w")
-    try:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
-        lock.close()
-        return None
-    return lock
-
-
 def running() -> bool:
     """Whether a viewer is up. The lock goes when its process does, however it ends."""
-    lock = _take()
-    if lock is None:
-        return True
-    lock.close()
-    return False
+    return locks.held(viewer_lock_file())
 
 
 def show() -> None:
@@ -65,7 +47,7 @@ def claim() -> bool:
     """
     global _held
     if _held is None:
-        _held = _take()
+        _held = locks.take(viewer_lock_file())
     return _held is not None
 
 

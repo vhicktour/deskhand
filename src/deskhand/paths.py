@@ -2,7 +2,8 @@
 
 Everything lives under one home: ~/.local/share/deskhand, or DESKHAND_HOME when
 set (tests point it at a temporary folder). Runs get a folder each under runs/;
-the sandbox registry and the viewer's lock file sit next to it.
+the sandbox registry, the viewer's lock file and Laya's folder (key, lock,
+calibration, labelled cases) sit next to it.
 """
 
 from __future__ import annotations
@@ -26,3 +27,7 @@ def sandboxes_file() -> Path:
 
 def viewer_lock_file() -> Path:
     return home() / "viewer.lock"
+
+
+def laya_dir() -> Path:
+    return home() / "laya"

@@ -1,7 +1,7 @@
 import pytest
 from anthropic.lib.tools import ToolError
 from conftest import FakeDriver
-from mcp.types import ListToolsResult, Tool
+from mcp.types import ListToolsResult, TextContent, Tool
 
 from deskhand.bridge import CURATED_TOOLS, driver_tools
 
@@ -94,4 +94,37 @@ async def test_desktop_captures_are_capped_unless_claude_sets_a_size():
     assert driver.calls == [
         ("get_desktop_state", {"max_image_dimension": 1568}),
         ("get_desktop_state", {"max_image_dimension": 0}),
+    ]
+
+
+class Gate:
+    def __init__(self, refuse=None):
+        self.refuse = refuse
+
+    async def check(self, name, arguments):
+        return self.refuse
+
+    async def review(self, name, arguments, result):
+        note = TextContent(type="text", text="reviewed")
+        return result.model_copy(update={"content": [*result.content, note]})
+
+
+async def test_a_refused_call_never_reaches_the_driver():
+    driver, hook = FakeDriver(["click"]), Recorder()
+    (tool,) = await driver_tools(driver, [hook], gate=Gate(refuse="The user declined."))
+    with pytest.raises(ToolError) as refused:
+        await tool.call({"x": 1})
+    assert "The user declined." in str(refused.value.content)
+    assert driver.calls == []
+    assert hook.events == [("after", "click", True, None)]  # no before_call: the aura stays put
+
+
+async def test_the_gate_can_add_to_a_result():
+    driver, hook = FakeDriver(["get_window_state"]), Recorder()
+    (tool,) = await driver_tools(driver, [hook], gate=Gate())
+    blocks = await tool.call({})
+    assert isinstance(blocks, list) and blocks[-1] == {"type": "text", "text": "reviewed"}
+    assert [e[:2] for e in hook.events] == [
+        ("before", "get_window_state"),
+        ("after", "get_window_state"),
     ]

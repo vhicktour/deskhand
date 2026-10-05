@@ -2,8 +2,9 @@
 
 `run` opens the chosen computer, hands the task to the agent loop and prints a
 summary; `runs` and `show` look back at saved runs; `sandbox` manages named
-sandboxes; `viewer` opens the sandbox window; `mcp` serves deskhand to Claude
-Code; `doctor` checks the setup. Library logs (Anthropic SDK, MCP, cua) go to the
+sandboxes; `viewer` opens the sandbox window; `laya` sets up and measures the
+guard's local check and `guard` sets whether it asks; `mcp` serves deskhand to
+Claude Code; `doctor` checks the setup. Library logs (Anthropic SDK, MCP, cua) go to the
 run folder, not the terminal. Exit codes for `run`: 0 when the task finished,
 130 after Ctrl+C, 1 for anything else (errors, limits, refusals).
 """
@@ -12,10 +13,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import subprocess
+import sys
 from enum import StrEnum
 from typing import Annotated
 
 import typer
+from anthropic import AsyncAnthropic
 from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
@@ -24,8 +28,14 @@ from deskhand import mcp_server, sandboxes, viewer
 from deskhand.agent import Limits, run_task
 from deskhand.console import ConsoleView
 from deskhand.doctor import run_checks
+from deskhand.guard import Guard, approval, set_approval
+from deskhand.laya import cases
+from deskhand.laya import server as laya_server
+from deskhand.laya.client import Calibration, LayaClient
+from deskhand.laya.evaluate import BAR_FALSE_ALARMS, BAR_RECALL, Row, measure
 from deskhand.models import DEFAULT_MODEL, MODELS, ModelAlias, ModelSpec
 from deskhand.paths import runs_root
+from deskhand.questions import Ask, RunFolderQuestions
 from deskhand.runlog import RunLog, RunSummary, find_run, list_runs, load_summary
 from deskhand.targets import TargetError
 from deskhand.targets.mac import open_mac
@@ -38,11 +48,26 @@ app = typer.Typer(
 )
 sandbox_app = typer.Typer(no_args_is_help=True, help="Named Linux sandboxes (at most 3 at once).")
 app.add_typer(sandbox_app, name="sandbox")
+laya_app = typer.Typer(no_args_is_help=True, help="Laya, the fast local check behind the guard.")
+app.add_typer(laya_app, name="laya")
+
+
+@app.callback()
+def _quiet_libraries() -> None:
+    # Importing cua_sandbox installs an INFO-level log handler on the root logger,
+    # which printed library chatter (every HTTP request) under each command. Every
+    # command starts from warnings only; `run` then sends its logs to the run folder.
+    logging.basicConfig(level=logging.WARNING, force=True)
 
 
 class On(StrEnum):
     sandbox = "sandbox"
     mac = "mac"
+
+
+class Approval(StrEnum):
+    ask = "ask"
+    allow = "allow"
 
 
 class Effort(StrEnum):
@@ -64,9 +89,24 @@ async def _run(
     keep: bool,
     view: bool,
     aura: bool,
+    guard: bool,
     log: RunLog,
     console: ConsoleView,
 ) -> RunSummary:
+    ask: Ask = console.ask if sys.stdin.isatty() else RunFolderQuestions(log.dir)
+    laya = LayaClient(Calibration.load()) if guard else None
+    gate = None
+    if laya is not None:
+        try:
+            laya_server.start()  # loads while Claude takes its first turn
+            setting = approval()
+            gate = Guard(client=laya, ask=ask, log=log, warn=console.info, approval=setting)
+            if setting == "allow":
+                console.info("The guard is on, set to allow: it checks and records, never asks.")
+            else:
+                console.info("The guard is on: Laya checks each action, and it asks you first.")
+        except laya_server.LayaUnavailable as exc:
+            console.info(f"The guard is off for this run: {exc}")
     if on is On.mac:
         target = open_mac(aura=aura, log_dir=log.dir)
     else:
@@ -81,9 +121,21 @@ async def _run(
                 limits=limits,
                 log=log,
                 view=console,
+                ask=ask,
+                gate=gate,
             )
     except TargetError as exc:
         return log.finish(status="error", error=str(exc))
+    finally:
+        if laya is not None:
+            await laya.aclose()
+
+
+def _guard_on(flag: bool | None, on: On) -> bool:
+    """--guard/--no-guard when given; otherwise on for the Mac once the eval has passed."""
+    if flag is not None:
+        return flag
+    return on is On.mac and laya_server.installed() and Calibration.load().passed
 
 
 @app.command()
@@ -116,6 +168,14 @@ def run(
     aura: Annotated[
         bool, typer.Option(help="Orange glow and cursor on the window being worked on (Mac).")
     ] = True,
+    guard: Annotated[
+        bool | None,
+        typer.Option(
+            "--guard/--no-guard",
+            help="Have Laya check each action and ask you before anything hard to undo "
+            "(default: on for the Mac once `deskhand laya eval` has passed).",
+        ),
+    ] = None,
     run_id: Annotated[str | None, typer.Option(hidden=True)] = None,
 ) -> None:
     """Do TASK on a computer."""
@@ -138,6 +198,7 @@ def run(
                 keep=keep,
                 view=view,
                 aura=aura,
+                guard=_guard_on(guard, on),
                 log=log,
                 console=console,
             )
@@ -271,3 +332,142 @@ def doctor() -> None:
         out.print(f"{mark} {check.name}: {escape(check.detail)}")
     if not all(check.ok for check in checks):
         raise typer.Exit(1)
+
+
+@app.command("guard")
+def guard_approval(
+    setting: Annotated[
+        Approval | None,
+        typer.Argument(help="ask: ask you before a flagged action. allow: never ask, just record."),
+    ] = None,
+) -> None:
+    """Show or set what the guard does with a flagged action."""
+    if setting is not None:
+        set_approval(setting.value)
+    current = approval()
+    meaning = (
+        "it asks you before an action Laya flags"
+        if current == "ask"
+        else "it never asks; it records what it would have asked and still warns Claude about "
+        "text aimed at it"
+    )
+    Console().print(f"Guard approval: {current} ({meaning}).")
+
+
+@laya_app.command("setup")
+def laya_setup() -> None:
+    """Install Laya and its model (about 800 MB) in their own environment, then start it."""
+    out = Console()
+    try:
+        report = laya_server.setup(lambda text: out.print(escape(text)))
+    except (laya_server.LayaUnavailable, subprocess.CalledProcessError) as exc:
+        out.print(f"[red]{escape(str(exc))}[/]")
+        raise typer.Exit(1) from exc
+    out.print(
+        f"Laya is up on {report.get('device', 'an unknown device')}. Next: deskhand laya eval"
+    )
+
+
+@laya_app.command("status")
+def laya_status() -> None:
+    """Whether Laya is set up and running, and how its last measurement went."""
+    out = Console()
+    if not laya_server.installed():
+        out.print("Laya isn't installed. Run: deskhand laya setup")
+        return
+    report = laya_server.health() if laya_server.running() else None
+    where = (
+        f"up on {report.get('device', '?')}" if report else "stopped (starts when a check needs it)"
+    )
+    out.print(f"Server: {where}")
+    calibration = Calibration.load()
+    if not calibration.fits:
+        out.print("Not measured yet. Run: deskhand laya eval")
+        return
+    for name, fit in calibration.fits.items():
+        verdict = "passes" if fit.passed else "below the bar"
+        out.print(
+            f"{name}: {verdict} · catches {fit.recall:.0%} with {fit.false_alarms:.0%} false "
+            f"alarms · AUROC {fit.auroc:.2f}"
+        )
+    default = "on" if calibration.passed else "off"
+    out.print(f"Guard on Mac runs by default: {default} (measured {calibration.measured_at})")
+
+
+@laya_app.command("stop")
+def laya_stop() -> None:
+    """Stop the Laya server now (it also stops by itself after 30 idle minutes)."""
+    Console().print("Stopping Laya." if laya_server.stop() else "Laya isn't running.")
+
+
+@laya_app.command("serve", hidden=True)
+def laya_serve() -> None:
+    laya_server.serve()
+
+
+@laya_app.command("cases")
+def laya_cases(
+    label: Annotated[bool, typer.Option(help="Have Claude label the new cases.")] = True,
+    model: Annotated[
+        ModelAlias, typer.Option(help="The Claude model that labels.")
+    ] = DEFAULT_MODEL,
+) -> None:
+    """Collect guard cases from past runs and have Claude label the new ones."""
+    out = Console()
+    rows, added = cases.collect(runs_root())
+    todo = sum(row.get("label") is None for row in rows)
+    cost = 0.0
+    if label and todo:
+        cost = asyncio.run(cases.label(rows, AsyncAnthropic(), MODELS[model]))
+    cases.save(rows)
+    labelled = todo if label else 0
+    out.print(f"{added} new case(s), {len(rows)} in all; labelled {labelled} for ${cost:.2f}.")
+    for name in sorted({row["question"] for row in rows}):
+        yes = sum(row["question"] == name and row.get("label") is True for row in rows)
+        no = sum(row["question"] == name and row.get("label") is False for row in rows)
+        out.print(f"  {name}: {yes} yes, {no} no")
+    out.print(f"[dim]Review or fix labels in {cases.run_cases_file()}[/]")
+
+
+async def _measure_all(client: LayaClient) -> tuple[Calibration, list[Row]]:
+    try:
+        return await measure(cases.synthetic_cases() + cases.labelled_run_cases(), client)
+    finally:
+        await client.aclose()
+
+
+@laya_app.command("eval")
+def laya_eval() -> None:
+    """Measure Laya on the labelled cases and fit the guard's thresholds."""
+    out = Console()
+    try:
+        calibration, rows = asyncio.run(_measure_all(LayaClient(timeout_s=60)))
+    except laya_server.LayaUnavailable as exc:
+        out.print(f"[red]{escape(str(exc))}[/]")
+        raise typer.Exit(1) from exc
+    calibration.save()
+    table = Table(
+        "Question", "Yes/no", "AUROC", "Caught", "False alarms", "Threshold", "Calib. error",
+        "ms (p50/p95)", box=None, pad_edge=False,
+    )  # fmt: skip
+    for row in rows:
+        fit = row.fit
+        table.add_row(
+            row.question,
+            f"{fit.positives}/{fit.negatives}",
+            f"{fit.auroc:.2f}",
+            f"{fit.recall:.0%}",
+            f"[{'green' if fit.passed else 'red'}]{fit.false_alarms:.0%}[/]",
+            f"{fit.threshold:.2f}",
+            f"{row.ece_before:.2f}→{row.ece_after:.2f}",
+            f"{row.ms_median:.0f}/{row.ms_p95:.0f}",
+        )
+    out.print(table)
+    bar = f"catch {BAR_RECALL:.0%} with at most {BAR_FALSE_ALARMS:.0%} false alarms"
+    if calibration.passed:
+        out.print(f"Both questions {bar}: the guard is now on by default for Mac runs.")
+    else:
+        out.print(
+            f"Below the bar ({bar}), so the guard stays off unless you pass --guard. "
+            "Fine-tuning Laya on labelled cases is the next step."
+        )

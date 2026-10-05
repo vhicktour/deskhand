@@ -107,9 +107,9 @@ class ConsoleView:
                 f"    [red]{escape(_short(first.splitlines()[0] if first else 'error', 160))}[/]"
             )
 
-    async def ask(self, question: str) -> str:
+    async def ask(self, question: str, *, who: str = "Claude") -> str:
         """Ask the user in the terminal without blocking Ctrl+C."""
-        self.console.print(f"\n[bold yellow]Claude asks:[/] {escape(question)}")
+        self.console.print(f"\n[bold yellow]{escape(who)} asks:[/] {escape(question)}")
         loop = asyncio.get_running_loop()
         answer: asyncio.Future[str] = loop.create_future()
 

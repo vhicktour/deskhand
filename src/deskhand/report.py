@@ -3,8 +3,10 @@
 Built from the run's trace and summary when the run ends, with no scripts and
 no network, so it opens from disk anywhere. Each model turn shows Claude's
 progress notes and text; each tool call shows its arguments, its text result
-(long results fold away) and any screenshots, linked from screens/. Everything
-from the trace is HTML-escaped: page text the agent read could contain markup.
+(long results fold away) and any screenshots, linked from screens/. The guard
+shows where it stepped in: a flagged screen, an action the user approved or
+declined, and the first check it had to skip. Everything from the trace is
+HTML-escaped: page text the agent read could contain markup.
 """
 
 from __future__ import annotations
@@ -42,6 +44,7 @@ h1 { font-size: 22px; margin: 0 0 6px; }
 .tool { background: var(--card); border: 1px solid var(--line); border-radius: 8px;
         padding: 10px 14px; margin: 10px 0; }
 .tool.error { border-color: var(--error); }
+.tool.guard { border-left: 4px solid var(--accent); }
 .tool .name { font-family: ui-monospace, Menlo, monospace; font-weight: 600; }
 .tool .args { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--muted);
               word-break: break-all; }
@@ -98,6 +101,42 @@ def _ask(event: dict[str, Any]) -> str:
     )
 
 
+def _guard(event: dict[str, Any]) -> str:
+    state = event.get("state", {})
+    p = event.get("probability")
+    rated = f" · Laya {p:.0%}" if isinstance(p, int | float) else ""
+    if event.get("question") == "page_orders":
+        title = "guard: screen text aimed at the agent" + rated
+        body = state.get("text", "")
+    else:
+        decision = event.get("decision", "")
+        if decision == "let through":
+            decision = "let through (approval set to allow)"
+        title = f"guard: action {decision}" + rated
+        body = " · ".join(f"{k}: {v}" for k, v in state.items() if v)
+    if event.get("decision") == "skipped":
+        title = "guard: skipping checks, Laya didn't answer"
+    if "answer" in event:
+        body += f"\nAnswer: {event['answer'] or '(none)'}"
+    return f'<div class="tool guard"><div class="name">{_e(title)}</div>{_text_block(body)}</div>'
+
+
+def _notable(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Every event but the guard's routine passes, and only its first skipped check."""
+    kept: list[dict[str, Any]] = []
+    skipped = False
+    for event in events:
+        if event["kind"] == "guard":
+            if event.get("decision") == "allowed":
+                continue
+            if event.get("decision") == "skipped":
+                if skipped:
+                    continue
+                skipped = True
+        kept.append(event)
+    return kept
+
+
 def render(summary: RunSummary, events: list[dict[str, Any]]) -> str:
     meta = " · ".join(
         [
@@ -116,8 +155,8 @@ def render(summary: RunSummary, events: list[dict[str, Any]]) -> str:
         body.append(f'<div class="box">{_e(summary.result)}</div>')
     if summary.error:
         body.append(f'<div class="box error">{_e(summary.error)}</div>')
-    renderers = {"turn": _turn, "tool": _tool, "ask": _ask}
-    body += [renderers[e["kind"]](e) for e in events if e["kind"] in renderers]
+    renderers = {"turn": _turn, "tool": _tool, "ask": _ask, "guard": _guard}
+    body += [renderers[e["kind"]](e) for e in _notable(events) if e["kind"] in renderers]
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'

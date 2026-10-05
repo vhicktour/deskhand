@@ -114,3 +114,24 @@ def test_stop_sends_ctrl_c_only_to_a_live_run(monkeypatch):
 
 def test_unknown_run():
     assert tasks.status("nope").status == "unknown"
+
+
+def test_start_passes_the_guard_choice(monkeypatch):
+    assert start(monkeypatch, guard=True)[1].args[-1] == "--guard"
+    assert start(monkeypatch, guard=False)[1].args[-1] == "--no-guard"
+    args = start(monkeypatch)[1].args
+    assert "--guard" not in args and "--no-guard" not in args
+
+
+def test_a_run_with_a_question_is_waiting_until_answered(monkeypatch):
+    run_id, _ = start(monkeypatch)
+    run_dir = runs_root() / run_id
+    question = {"id": "q1", "who": "deskhand's guard", "question": "Allow it?"}
+    (run_dir / "question.json").write_text(json.dumps(question))
+    waiting = tasks.status(run_id)
+    assert (waiting.status, waiting.question) == ("waiting", "deskhand's guard asks: Allow it?")
+    assert tasks.answer(run_id, "no")
+    assert json.loads((run_dir / "answer.json").read_text()) == {"id": "q1", "answer": "no"}
+    (run_dir / "question.json").unlink()
+    assert tasks.status(run_id).status == "running"
+    assert not tasks.answer(run_id, "late") and not tasks.answer("no-such-run", "x")

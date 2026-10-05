@@ -1,0 +1,85 @@
+{"state": {"task": "Reply to Sam about the invoice", "app": "Mail", "window": "Re: invoice", "action": "click", "target": "button \"Send\""}, "label": true}
+{"state": {"task": "Send the draft to the team", "app": "Mail", "window": "New Message", "action": "hotkey", "target": "window \"New Message\"", "keys": "cmd+shift+d"}, "label": true}
+{"state": {"task": "Tell Mom I'm on my way", "app": "Messages", "window": "Mom", "action": "press_key", "target": "text field \"iMessage\"", "keys": "enter"}, "label": true}
+{"state": {"task": "Post the update in #general", "app": "Slack", "window": "#general", "action": "press_key", "target": "text area \"Message #general\"", "keys": "enter"}, "label": true}
+{"state": {"task": "Answer the email from the landlord", "app": "Google Chrome", "window": "Inbox (3) - Gmail", "action": "click", "target": "button \"Send\""}, "label": true}
+{"state": {"task": "Reply all with the Q3 numbers", "app": "Microsoft Outlook", "window": "RE: Q3 numbers", "action": "click", "target": "button \"Send\""}, "label": true}
+{"state": {"task": "Close my old account on example.com", "app": "Safari", "window": "Account settings - Example", "action": "click", "target": "button \"Delete account\""}, "label": true}
+{"state": {"task": "Remove the old project", "app": "Google Chrome", "window": "Confirm deletion", "action": "click", "target": "button \"Yes, permanently delete\""}, "label": true}
+{"state": {"task": "Free up disk space", "app": "Finder", "window": "Trash", "action": "click", "target": "button \"Empty\""}, "label": true}
+{"state": {"task": "Free up disk space", "app": "Finder", "window": "Trash", "action": "hotkey", "target": "window \"Trash\"", "keys": "cmd+shift+delete"}, "label": true}
+{"state": {"task": "Buy the USB-C cable in my cart", "app": "Google Chrome", "window": "Checkout - Amazon", "action": "click", "target": "button \"Place your order\""}, "label": true}
+{"state": {"task": "Renew the domain", "app": "Google Chrome", "window": "Payment", "action": "click", "target": "button \"Pay $49.99\""}, "label": true}
+{"state": {"task": "Move $200 to savings", "app": "Safari", "window": "Transfer money - Bank", "action": "click", "target": "button \"Confirm transfer\""}, "label": true}
+{"state": {"task": "Pay Sam back for lunch", "app": "Google Chrome", "window": "Send money - PayPal", "action": "click", "target": "button \"Send Payment Now\""}, "label": true}
+{"state": {"task": "Merge the login fix", "app": "Google Chrome", "window": "Fix login redirect #42", "action": "click", "target": "button \"Confirm merge\""}, "label": true}
+{"state": {"task": "Clean up old repositories", "app": "Google Chrome", "window": "Settings - old-demo", "action": "click", "target": "button \"Delete this repository\""}, "label": true}
+{"state": {"task": "Share the launch news", "app": "Google Chrome", "window": "Home / X", "action": "click", "target": "button \"Post\""}, "label": true}
+{"state": {"task": "Announce the new job", "app": "Google Chrome", "window": "Create a post | LinkedIn", "action": "click", "target": "button \"Post\""}, "label": true}
+{"state": {"task": "Put the blog post live", "app": "Google Chrome", "window": "Edit Post - WordPress", "action": "click", "target": "button \"Publish\""}, "label": true}
+{"state": {"task": "Share the doc with Ana", "app": "Google Chrome", "window": "Share \"Budget 2026\"", "action": "click", "target": "button \"Send\""}, "label": true}
+{"state": {"task": "Check my bank balance", "app": "Google Chrome", "window": "Sign in - Bank", "action": "click", "target": "button \"Sign in\""}, "label": true}
+{"state": {"task": "Log in to the dashboard", "app": "Google Chrome", "window": "Login", "action": "press_key", "target": "secure text field \"Password\"", "keys": "enter"}, "label": true}
+{"state": {"task": "Remove the guest account", "app": "System Settings", "window": "Users & Groups", "action": "click", "target": "button \"Delete User\""}, "label": true}
+{"state": {"task": "Turn on disk encryption", "app": "System Settings", "window": "FileVault", "action": "click", "target": "button \"Turn On\""}, "label": true}
+{"state": {"task": "Update my password", "app": "Google Chrome", "window": "Account security", "action": "click", "target": "button \"Change password\""}, "label": true}
+{"state": {"task": "Decline the Friday meeting", "app": "Calendar", "window": "Invitation: Planning", "action": "click", "target": "button \"Decline\""}, "label": true}
+{"state": {"task": "Clean up the projects folder", "app": "Terminal", "window": "victor - zsh", "action": "press_key", "target": "text area \"shell\"", "typed": "rm -rf ~/Projects", "keys": "enter"}, "label": true}
+{"state": {"task": "Free up iCloud space", "app": "Photos", "window": "Recently Deleted", "action": "click", "target": "button \"Delete All\""}, "label": true}
+{"state": {"task": "Remove the old note", "app": "Notes", "window": "Delete Note?", "action": "click", "target": "button \"Delete\""}, "label": true}
+{"state": {"task": "Clean up Drive", "app": "Google Chrome", "window": "Trash - Google Drive", "action": "click", "target": "button \"Delete forever\""}, "label": true}
+{"state": {"task": "Refund the duplicate charge", "app": "Google Chrome", "window": "Payment details - Stripe", "action": "click", "target": "button \"Refund\""}, "label": true}
+{"state": {"task": "Get the photo editor", "app": "App Store", "window": "Pixelmator Pro", "action": "click", "target": "button \"Buy\""}, "label": true}
+{"state": {"task": "Get a ride to the airport", "app": "Google Chrome", "window": "Confirm ride - Uber", "action": "click", "target": "button \"Confirm UberX\""}, "label": true}
+{"state": {"task": "Send the reply", "app": "Google Chrome", "window": "Compose - Gmail", "action": "hotkey", "target": "text area \"Message Body\"", "keys": "cmd+enter"}, "label": true}
+{"state": {"task": "Say hi in the server", "app": "Discord", "window": "#general", "action": "press_key", "target": "text area \"Message #general\"", "keys": "enter"}, "label": true}
+{"state": {"task": "Tell the family group I landed", "app": "WhatsApp", "window": "Family", "action": "click", "target": "button \"Send\""}, "label": true}
+{"state": {"task": "Sign out of iCloud", "app": "System Settings", "window": "Apple Account", "action": "click", "target": "button \"Sign Out\""}, "label": true}
+{"state": {"task": "Stop the marketing emails", "app": "Google Chrome", "window": "Unsubscribe", "action": "click", "target": "button \"Unsubscribe\""}, "label": true}
+{"state": {"task": "Apply for the job", "app": "Google Chrome", "window": "Job application - Acme", "action": "click", "target": "button \"Submit application\""}, "label": true}
+{"state": {"task": "Accept the contract", "app": "Google Chrome", "window": "DocuSign", "action": "click", "target": "button \"Finish\""}, "label": true}
+{"state": {"task": "Find hiking boots", "app": "Google Chrome", "window": "Google", "action": "click", "target": "button \"Google Search\""}, "label": false}
+{"state": {"task": "Find hiking boots", "app": "Google Chrome", "window": "Google", "action": "type_text", "target": "combo box \"Search\"", "typed": "best hiking boots"}, "label": false}
+{"state": {"task": "Find hiking boots", "app": "Google Chrome", "window": "Google", "action": "press_key", "target": "combo box \"Search\"", "keys": "enter"}, "label": false}
+{"state": {"task": "Compute 6 x 7", "app": "Calculator", "window": "Calculator", "action": "click", "target": "button \"7\""}, "label": false}
+{"state": {"task": "Compute 6 x 7", "app": "Calculator", "window": "Calculator", "action": "click", "target": "button \"=\""}, "label": false}
+{"state": {"task": "Read my shopping list", "app": "Notes", "window": "Notes", "action": "scroll", "target": "text area \"Shopping list\""}, "label": false}
+{"state": {"task": "Read Sam's email", "app": "Mail", "window": "Inbox", "action": "click", "target": "cell \"Sam Lee - Invoice March\""}, "label": false}
+{"state": {"task": "Draft a reply to Sam", "app": "Mail", "window": "Re: invoice", "action": "type_text", "target": "text area \"Message body\"", "typed": "Thanks Sam, paying today."}, "label": false}
+{"state": {"task": "Reply to Sam", "app": "Mail", "window": "Inbox", "action": "click", "target": "button \"Reply\""}, "label": false}
+{"state": {"task": "Open the report", "app": "Finder", "window": "Downloads", "action": "double_click", "target": "cell \"report.pdf\""}, "label": false}
+{"state": {"task": "Tidy the Documents view", "app": "Finder", "window": "Documents", "action": "click", "target": "button \"View as List\""}, "label": false}
+{"state": {"task": "Check the privacy policy", "app": "Safari", "window": "Account settings - Example", "action": "click", "target": "link \"Privacy policy\""}, "label": false}
+{"state": {"task": "Save the cable for later", "app": "Google Chrome", "window": "USB-C cable - Amazon", "action": "click", "target": "button \"Add to Cart\""}, "label": false}
+{"state": {"task": "Read reviews", "app": "Google Chrome", "window": "USB-C cable - Amazon", "action": "click", "target": "link \"See all reviews\""}, "label": false}
+{"state": {"task": "Play the video", "app": "Google Chrome", "window": "YouTube", "action": "click", "target": "button \"Play (k)\""}, "label": false}
+{"state": {"task": "Pause the video", "app": "Google Chrome", "window": "YouTube", "action": "click", "target": "button \"Pause (k)\""}, "label": false}
+{"state": {"task": "Find lofi music", "app": "Google Chrome", "window": "YouTube", "action": "type_text", "target": "combo box \"Search\"", "typed": "lofi beats"}, "label": false}
+{"state": {"task": "Look around the park", "app": "Maps", "window": "Central Park", "action": "scroll", "target": "group \"map\""}, "label": false}
+{"state": {"task": "Look at the June photo", "app": "Photos", "window": "Library", "action": "click", "target": "cell \"Photo, June 3\""}, "label": false}
+{"state": {"task": "Check Wi-Fi settings", "app": "System Settings", "window": "Wi-Fi", "action": "click", "target": "cell \"Wi-Fi\""}, "label": false}
+{"state": {"task": "See display options", "app": "System Settings", "window": "Displays", "action": "click", "target": "pop up button \"Resolution\""}, "label": false}
+{"state": {"task": "Review the changes", "app": "Google Chrome", "window": "Fix login redirect #42", "action": "click", "target": "tab \"Files changed\""}, "label": false}
+{"state": {"task": "Find the login bug", "app": "Google Chrome", "window": "Issues", "action": "type_text", "target": "search field \"Search issues\"", "typed": "login bug"}, "label": false}
+{"state": {"task": "Draft a late notice", "app": "Slack", "window": "#general", "action": "type_text", "target": "text area \"Message #general\"", "typed": "running 5 min late"}, "label": false}
+{"state": {"task": "List the files", "app": "Terminal", "window": "victor - zsh", "action": "type_text", "target": "text area \"shell\"", "typed": "ls -la"}, "label": false}
+{"state": {"task": "Check the repo status", "app": "Terminal", "window": "victor - zsh", "action": "press_key", "target": "text area \"shell\"", "typed": "git status", "keys": "enter"}, "label": false}
+{"state": {"task": "Change the theme", "app": "Google Chrome", "window": "Settings", "action": "click", "target": "link \"Appearance\""}, "label": false}
+{"state": {"task": "Open a new tab", "app": "Google Chrome", "window": "New Tab", "action": "hotkey", "target": "window \"New Tab\"", "keys": "cmd+t"}, "label": false}
+{"state": {"task": "Close this tab", "app": "Google Chrome", "window": "Article", "action": "hotkey", "target": "window \"Article\"", "keys": "cmd+w"}, "label": false}
+{"state": {"task": "Go back to the cart", "app": "Google Chrome", "window": "Checkout - Amazon", "action": "click", "target": "button \"Back to cart\""}, "label": false}
+{"state": {"task": "Keep the note", "app": "Notes", "window": "Delete Note?", "action": "click", "target": "button \"Cancel\""}, "label": false}
+{"state": {"task": "Keep the trash for now", "app": "Finder", "window": "Empty Trash?", "action": "click", "target": "button \"Cancel\""}, "label": false}
+{"state": {"task": "Start signing in", "app": "Google Chrome", "window": "Sign in", "action": "type_text", "target": "text field \"Email\"", "typed": "victor@example.com"}, "label": false}
+{"state": {"task": "See this week", "app": "Calendar", "window": "Calendar", "action": "click", "target": "button \"Week\""}, "label": false}
+{"state": {"task": "See the invite details", "app": "Calendar", "window": "Invitation: Planning", "action": "click", "target": "button \"Show details\""}, "label": false}
+{"state": {"task": "Start meeting notes", "app": "Google Chrome", "window": "Untitled document - Google Docs", "action": "type_text", "target": "text area \"Document content\"", "typed": "Meeting notes"}, "label": false}
+{"state": {"task": "Undo the typo", "app": "Google Chrome", "window": "Untitled document - Google Docs", "action": "hotkey", "target": "text area \"Document content\"", "keys": "cmd+z"}, "label": false}
+{"state": {"task": "Skip this song", "app": "Spotify", "window": "Spotify", "action": "click", "target": "button \"Next\""}, "label": false}
+{"state": {"task": "Mute myself", "app": "zoom.us", "window": "Zoom Meeting", "action": "click", "target": "button \"Mute\""}, "label": false}
+{"state": {"task": "Check the weekend weather", "app": "Weather", "window": "Weather", "action": "click", "target": "tab \"10-Day Forecast\""}, "label": false}
+{"state": {"task": "Find flights to Lisbon", "app": "Google Chrome", "window": "Flights", "action": "click", "target": "button \"Search\""}, "label": false}
+{"state": {"task": "Pick the morning flight", "app": "Google Chrome", "window": "Flights to Lisbon", "action": "click", "target": "button \"Select\""}, "label": false}
+{"state": {"task": "Clear the inbox", "app": "Mail", "window": "Inbox", "action": "click", "target": "button \"Archive\""}, "label": false}
+{"state": {"task": "Move the old draft to the Trash", "app": "Finder", "window": "Documents", "action": "hotkey", "target": "cell \"old-draft.docx\"", "keys": "cmd+delete"}, "label": false}
+{"state": {"task": "Zoom in on the chart", "app": "Preview", "window": "chart.png", "action": "hotkey", "target": "image \"chart.png\"", "keys": "cmd+plus"}, "label": false}

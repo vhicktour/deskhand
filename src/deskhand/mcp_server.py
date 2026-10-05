@@ -3,9 +3,10 @@
 Sandbox tools let Claude make, use and remove Linux desktop sandboxes (at most
 three at once; idle ones are swept), each shown in the native viewer window.
 Task tools hand a whole job to deskhand's own agent, in a sandbox or on this Mac,
-in the background: start it, check on it (optionally waiting), stop it. Results
-point at the run's report so Claude can read what happened. The tool docstrings
-below are what Claude reads, so they say when and how to use each tool.
+in the background: start it, check on it (optionally waiting), answer the
+questions it asks, stop it. Results point at the run's report so Claude can read
+what happened. The tool docstrings are what Claude reads, so they say when and
+how to use each tool.
 """
 
 from __future__ import annotations
@@ -24,7 +25,9 @@ server = MCPServer(
     instructions=(
         "deskhand gives you computers to use: disposable Linux desktop sandboxes "
         "(at most 3 at once) and this Mac. Prefer sandboxes; use the Mac only when "
-        "the user asks for something on their Mac. Delete sandboxes you're done with."
+        "the user asks for something on their Mac. Delete sandboxes you're done with. When "
+        "task_status says a run is waiting, ask the user its question and pass their answer "
+        "with task_answer."
     ),
 )
 
@@ -89,6 +92,7 @@ async def task_start(
     effort: str = "medium",
     max_steps: int = 50,
     max_cost: float = 2.0,
+    guard: bool | None = None,
 ) -> dict[str, Any]:
     """Hand a whole computer task to deskhand's agent; it runs in the background.
 
@@ -97,8 +101,10 @@ async def task_start(
     without one, in a fresh sandbox deleted at the end. on="mac" drives this Mac's
     real apps with an orange glow on the window being worked on: only when the user
     asked for something on their Mac. model is opus (default), sonnet or fable. The
-    run stops at max_steps model turns or max_cost dollars. Returns a run_id for
-    task_status and task_stop.
+    run stops at max_steps model turns or max_cost dollars. guard (Laya checks each
+    action and asks the user before anything hard to undo) is on by default for
+    the Mac once `deskhand laya eval` has passed; true or false overrides that.
+    Returns a run_id for task_status, task_answer and task_stop.
     """
     if on not in ("sandbox", "mac"):
         raise ValueError('on must be "sandbox" or "mac"')
@@ -118,20 +124,34 @@ async def task_start(
         effort=effort,
         max_steps=max_steps,
         max_cost=max_cost,
+        guard=guard,
     )
     return {"run_id": run_id, "status": "running"}
 
 
 @server.tool()
 async def task_status(run_id: str, wait_s: int = 0) -> dict[str, Any]:
-    """A background run's state: running (with its latest notes) or how it ended.
+    """A background run's state: running (with its latest notes), waiting, or how it ended.
 
-    wait_s (up to 600) waits for the run to end first. When it has ended you get
+    waiting means the run has a question for the user (in `question`): ask the
+    user and pass their answer with task_answer. wait_s (up to 600) waits until
+    the run ends or starts waiting. When it has ended you get
     the status (done, step_limit, cost_limit, refused, error, interrupted or
     crashed), the result or error, steps, cost and the path of report.html,
     whose run folder also holds trace.jsonl and the screenshots.
     """
     return (await tasks.wait(run_id, wait_s)).to_dict()
+
+
+@server.tool()
+async def task_answer(run_id: str, answer: str) -> str:
+    """Answer the question a waiting run asked (see task_status), and let it go on.
+
+    Questions from deskhand's guard ask whether an action that may be hard to undo
+    should run: put them to the user and pass their exact answer, never your own.
+    Other questions you may answer yourself when the user's request already does.
+    """
+    return "Sent." if tasks.answer(run_id, answer) else "That run isn't waiting for an answer."
 
 
 @server.tool()

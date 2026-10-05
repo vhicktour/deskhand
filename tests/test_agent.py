@@ -29,10 +29,9 @@ async def run(runs_root, replies, *, limits=ROOMY, shell=True, answers=("a.txt",
     view = ConsoleView(Console(file=io.StringIO(), width=200))
     pending = list(answers)
 
-    async def ask(question):
+    async def ask(question, *, who="Claude"):
         return pending.pop(0)
 
-    view.ask = ask
     driver = FakeDriver(DRIVER)
     session = Session(name="sandbox", driver=driver, run_shell=fake_shell if shell else None)
     client = FakeClient(replies)
@@ -44,6 +43,7 @@ async def run(runs_root, replies, *, limits=ROOMY, shell=True, answers=("a.txt",
         limits=limits,
         log=log,
         view=view,
+        ask=ask,
         client=client,  # type: ignore[arg-type]
     )
     return summary, log, client, driver

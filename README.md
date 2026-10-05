@@ -47,12 +47,14 @@ deskhand run "TASK" [--on sandbox|mac] [--model opus|sonnet|fable]
                     [--effort low|medium|high|xhigh|max]
                     [--max-steps 50] [--max-cost 2.00]
                     [--sandbox NAME] [--keep] [--no-view] [--no-aura]
+                    [--guard | --no-guard]
 deskhand runs                 # past runs
 deskhand show RUN_ID          # a run's summary; opens its report
 deskhand sandbox create       # a sandbox that stays until deleted (at most 3)
 deskhand sandbox list         # running sandboxes
 deskhand sandbox rm NAME      # delete one
 deskhand viewer               # open the sandbox viewer window
+deskhand laya setup|eval|status   # the guard's local check (optional, see below)
 deskhand doctor               # setup checks
 ```
 
@@ -77,9 +79,9 @@ first turn (it caches the tools and instructions), then about a cent a step.
 The `plugin/` folder makes deskhand part of every Claude Code session: an MCP
 server (`deskhand mcp`) with sandbox tools (`sandbox_create`, `sandbox_list`,
 `sandbox_delete`, `sandbox_shell`, `sandbox_screenshot`) and task tools
-(`task_start`, `task_status`, `task_stop`), a `deskhand` skill, and a
-`sandbox-tester` subagent that tests one scenario in its own sandbox. Sandboxes
-idle for 30 minutes are deleted.
+(`task_start`, `task_status`, `task_answer`, `task_stop`), a `deskhand` skill,
+and a `sandbox-tester` subagent that tests one scenario in its own sandbox.
+Sandboxes idle for 30 minutes are deleted.
 
 ```sh
 claude plugin marketplace add vhicktour/deskhand   # or the path of your clone
@@ -93,6 +95,28 @@ server; background runs pick up changes on their own. Claude Code keeps a
 cached copy of the plugin's own files (skill, agent): after changing anything
 under `plugin/`, bump the version in `plugin/.claude-plugin/plugin.json` and run
 `claude plugin marketplace update deskhand && claude plugin update deskhand@deskhand`.
+
+## Guard (optional)
+
+The guard checks each action with [Laya](https://huggingface.co/convaiinnovations/laya),
+a small classifier that runs on your Mac, before it runs. It asks you first
+when an action looks hard to undo (send, pay, delete, sign in), or when the
+window's text tried to give the agent orders. It also tells Claude when a
+screen's text looks aimed at it.
+
+```sh
+deskhand laya setup     # installs Laya in its own environment (PyTorch, ~800 MB model)
+deskhand laya eval      # measures it on labelled cases and fits its thresholds
+deskhand laya cases     # adds cases from your past runs, labelled by Claude (a few cents)
+deskhand guard allow    # never ask: record what it would have asked (deskhand guard ask undoes it)
+```
+
+The guard turns on by default for Mac runs only once `deskhand laya eval`
+passes: 95% of risky cases caught with at most 10% false alarms. Out of the box
+Laya doesn't pass (53% and 65% false alarms on deskhand's cases), so for now
+the guard is off unless you pass `--guard`. If Laya isn't running or answers
+slowly, the run goes on without it and says so. Background runs ask through
+Claude Code: `task_status` says `waiting`, and `task_answer` replies.
 
 ## Safety
 

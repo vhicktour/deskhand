@@ -20,11 +20,12 @@ from anthropic import AsyncAnthropic
 from anthropic.lib.tools import BetaAsyncFunctionTool, ToolError
 from anthropic.types.beta import BetaMessageParam, BetaToolResultBlockParam, BetaToolUseBlock
 
-from deskhand.bridge import driver_tools
+from deskhand.bridge import CallGate, driver_tools
 from deskhand.console import ConsoleView
 from deskhand.local_tools import ask_user_tool, shell_tool
 from deskhand.models import ModelSpec, Usage
 from deskhand.prompts import system_prompt
+from deskhand.questions import Ask
 from deskhand.runlog import RunLog, RunSummary
 from deskhand.targets.base import Session
 
@@ -87,12 +88,14 @@ async def run_task(
     limits: Limits,
     log: RunLog,
     view: ConsoleView,
+    ask: Ask | None = None,
+    gate: CallGate | None = None,
     client: AsyncAnthropic | None = None,
 ) -> RunSummary:
     hooks = [log, view, *session.hooks]
     tools: list[BetaAsyncFunctionTool[Any]] = [
-        *await driver_tools(session.driver, hooks, session.driver_session),
-        ask_user_tool(view.ask, hooks),
+        *await driver_tools(session.driver, hooks, session.driver_session, gate),
+        ask_user_tool(ask or view.ask, hooks),
     ]
     if session.run_shell is not None:
         tools.append(shell_tool(session.run_shell, hooks))

@@ -4,8 +4,9 @@ Both targets expose the same driver over MCP. The tool list is fetched once per
 run, cut down to CURATED_TOOLS and sorted by name, so the tools array is
 byte-identical on every request (the thinking-block and cache checks depend on
 it). Every call passes through DriverBridge, which lets hooks see it before and
-after (the run log saves screenshots, the aura follows the target window) and
-turns transport failures into errors Claude can read and recover from.
+after (the run log saves screenshots, the aura follows the target window), lets
+an optional gate (the guard) refuse it or add to its result, and turns transport
+failures into errors Claude can read and recover from.
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ from typing import Any, Protocol, cast
 
 from anthropic.lib.tools import BetaAsyncFunctionTool, ToolError
 from anthropic.lib.tools.mcp import async_mcp_tool
-from mcp.types import CallToolResult, ListToolsResult, Tool
+from mcp.types import CallToolResult, ListToolsResult, TextContent, Tool
 
 # The driver tools useful for doing tasks: observing, input, apps and windows,
 # and the browser. Left out: session and recording plumbing, cursor styling,
@@ -97,6 +98,18 @@ class CallHook(Protocol):
     ) -> None: ...
 
 
+class CallGate(Protocol):
+    """Something that may stop a driver call or add to its result: the guard."""
+
+    async def check(self, name: str, arguments: dict[str, Any]) -> str | None:
+        """None lets the call run; a string refuses it and is what Claude reads."""
+        ...
+
+    async def review(
+        self, name: str, arguments: dict[str, Any], result: CallToolResult
+    ) -> CallToolResult: ...
+
+
 class DriverBridge:
     """The MCP client as async_mcp_tool sees it, with hooks around each call.
 
@@ -105,7 +118,9 @@ class DriverBridge:
     result conversion (text and image blocks, errors) in one place. With a
     `session` label, every call that accepts one runs in that driver session,
     whatever label Claude picked: snapshots and element tokens stay in one
-    session, and the target can manage that session's cursor.
+    session, and the target can manage that session's cursor. A refused call
+    never reaches the driver: the hooks see it only afterwards, as an error, so
+    the aura doesn't point at something that won't be clicked.
     """
 
     def __init__(
@@ -114,16 +129,26 @@ class DriverBridge:
         hooks: Sequence[CallHook],
         session: str | None = None,
         session_tools: frozenset[str] = frozenset(),
+        gate: CallGate | None = None,
     ) -> None:
         self._client = client
         self._hooks = list(hooks)
         self._session = session
         self._session_tools = session_tools
+        self._gate = gate
 
     async def call_tool(self, name: str, arguments: dict[str, Any] | None = None) -> CallToolResult:
         args = {**DEFAULT_ARGUMENTS.get(name, {}), **(arguments or {})}
         if self._session is not None and name in self._session_tools:
             args["session"] = self._session
+        refusal = await self._gate.check(name, args) if self._gate else None
+        if refusal is not None:
+            refused = CallToolResult(
+                content=[TextContent(type="text", text=refusal)], is_error=True
+            )
+            for hook in self._hooks:
+                await hook.after_call(name, args, refused, None)
+            return refused
         for hook in self._hooks:
             await hook.before_call(name, args)
         try:
@@ -133,6 +158,8 @@ class DriverBridge:
             for hook in self._hooks:
                 await hook.after_call(name, args, None, message)
             raise ToolError(message) from exc
+        if self._gate:
+            result = await self._gate.review(name, args, result)
         for hook in self._hooks:
             await hook.after_call(name, args, result, None)
         return result
@@ -152,12 +179,15 @@ async def list_driver_tools(client: DriverClient) -> list[Tool]:
 
 
 async def driver_tools(
-    client: DriverClient, hooks: Sequence[CallHook], session: str | None = None
+    client: DriverClient,
+    hooks: Sequence[CallHook],
+    session: str | None = None,
+    gate: CallGate | None = None,
 ) -> list[BetaAsyncFunctionTool[Any]]:
     """Claude tools for the target's driver, calling through a hooked bridge."""
     tools = await list_driver_tools(client)
     session_tools = frozenset(
         t.name for t in tools if "session" in t.input_schema.get("properties", {})
     )
-    bridge = cast(Any, DriverBridge(client, hooks, session, session_tools))
+    bridge = cast(Any, DriverBridge(client, hooks, session, session_tools, gate))
     return [async_mcp_tool(tool, bridge) for tool in tools]

@@ -52,7 +52,14 @@ async def test_task_start_hands_off_to_a_background_run(monkeypatch, shown):
     reply = await mcp_server.task_start("Check the page", sandbox="deskhand-a-1")
     assert reply == {"run_id": "run-1", "status": "running"}
     assert started["sandbox"] == "deskhand-a-1" and started["on"] == "sandbox"
+    assert started["guard"] is None  # the run decides: on for the Mac once measured
     assert shown == []  # the run opens the viewer itself, once its sandbox is up
+
+
+async def test_task_answer_reaches_a_waiting_run(monkeypatch):
+    monkeypatch.setattr(mcp_server.tasks, "answer", lambda run_id, text: run_id == "run-1")
+    assert await mcp_server.task_answer("run-1", "yes") == "Sent."
+    assert await mcp_server.task_answer("run-2", "yes") == "That run isn't waiting for an answer."
 
 
 async def test_sandbox_limit_reaches_claude_as_an_error(cua, shown):
