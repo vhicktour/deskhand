@@ -1,0 +1,15 @@
+{
+  "name": "deskhand",
+  "description": "deskhand: computers for Claude Code (Linux desktop sandboxes and this Mac) through Cua.",
+  "owner": {
+    "name": "Victor Udeh",
+    "url": "https://github.com/vhicktour"
+  },
+  "plugins": [
+    {
+      "name": "deskhand",
+      "source": "./plugin",
+      "description": "Spin up Linux desktop sandboxes, drive them or this Mac with deskhand's computer-use agent, and test features in parallel."
+    }
+  ]
+}

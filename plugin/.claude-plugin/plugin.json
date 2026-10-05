@@ -1,0 +1,12 @@
+{
+  "name": "deskhand",
+  "version": "0.2.1",
+  "description": "Computers for Claude Code: Linux desktop sandboxes (up to 3 at once) and this Mac, through deskhand and Cua.",
+  "author": {
+    "name": "Victor Udeh",
+    "url": "https://github.com/vhicktour"
+  },
+  "homepage": "https://github.com/vhicktour/deskhand",
+  "repository": "https://github.com/vhicktour/deskhand",
+  "license": "MIT"
+}

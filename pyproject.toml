@@ -1,0 +1,56 @@
+[project]
+name = "deskhand"
+version = "0.1.0"
+description = "A computer-use task runner: Claude drives your Mac or a local Linux sandbox through Cua."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Victor Udeh" }]
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "anthropic[mcp]>=1.11,<2",
+    "cua-sandbox[mcp]>=0.9,<0.10",
+    "mcp>=2.3,<3",
+    "httpx2>=2.13,<3",
+    "typer>=0.27",
+    "rich>=15",
+    "pyobjc-framework-Cocoa>=12.2; sys_platform == 'darwin'",
+    "pyobjc-framework-Quartz>=12.2; sys_platform == 'darwin'",
+    "pyobjc-framework-WebKit>=12.2; sys_platform == 'darwin'",
+]
+
+[project.urls]
+Repository = "https://github.com/vhicktour/deskhand"
+
+[project.scripts]
+deskhand = "deskhand.cli:app"
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1",
+    "pytest-asyncio>=1.4",
+    "ruff>=0.16",
+    "pyright>=1.1.414",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "SIM"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+include = ["src", "tests"]
+typeCheckingMode = "standard"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = ["live: needs Docker or a real Mac and spends model tokens; run with -m live"]
+addopts = "-m 'not live'"
