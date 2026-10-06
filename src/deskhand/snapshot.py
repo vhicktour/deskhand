@@ -36,6 +36,7 @@ class Snapshot:
     window: str = ""
     window_id: int | None = None
     pid: int | None = None
+    bounds: dict[str, Any] | None = None  # the window's frame in screen points
     elements: list[dict[str, Any]] = field(default_factory=list)
     tree: str = ""
 
@@ -48,6 +49,9 @@ class Snapshot:
             window=str(data.get("window_title") or ""),
             window_id=data["window_id"] if isinstance(data.get("window_id"), int) else None,
             pid=data["pid"] if isinstance(data.get("pid"), int) else None,
+            bounds=data.get("window_bounds")
+            if isinstance(data.get("window_bounds"), dict)
+            else None,
             elements=list(data.get("elements") or []),
             tree=str(data.get("tree_markdown") or ""),
         )
@@ -79,17 +83,35 @@ class Snapshot:
                 return words
         return []
 
+    def words(self, element: dict[str, Any]) -> str:
+        """What an element says: its label, else the words nested under it."""
+        label = str(element.get("label") or "")
+        words = [label] if label else self._words_under(int(element.get("element_index", -1)))
+        return " ".join(w for w in words if w)[:120]
+
     def describe(self, element: dict[str, Any]) -> str:
         """An element in a few words: its role and what it says, e.g. button "Send"."""
         role = role_words(str(element.get("role", "")))
-        label = str(element.get("label") or "")
-        words = [label] if label else self._words_under(int(element.get("element_index", -1)))
-        text = " ".join(w for w in words if w)[:120]
+        text = self.words(element)
         return f'{role} "{text}"' if text else role
 
     def text(self) -> str:
         """The words a person could read in the window, one tree entry per line."""
         return visible_text(self.tree)
+
+    def text_under(self, index: int) -> str:
+        """The words of one element's whole subtree (a browser's web page, say)."""
+        lines = self.tree.splitlines()
+        for i, line in enumerate(lines):
+            match = _INDEX.search(line)
+            if match and int(match.group(1)) == index:
+                inside = [line]
+                for child in lines[i + 1 :]:
+                    if _indent(child) <= _indent(line):
+                        break
+                    inside.append(child)
+                return visible_text("\n".join(inside))
+        return ""
 
 
 def visible_text(tree_or_text: str) -> str:
@@ -97,12 +119,15 @@ def visible_text(tree_or_text: str) -> str:
 
     A tree's markup ("AXWindow ... actions=[raise]") is never passed on: Laya read
     it as commands and flagged ordinary windows (the 2026-10-05 TextEdit demo).
+    Placeholder characters (U+FFFC, which browsers put in place of embedded
+    objects) are dropped.
     """
     words = _QUOTED.findall(tree_or_text)
     if not _TREE_LINE.search(tree_or_text):
         return tree_or_text.strip()
     lines: list[str] = []
     for word in words:
+        word = word.replace("￼", "").strip()
         if word and (not lines or lines[-1] != word):
             lines.append(word)
     return "\n".join(lines)

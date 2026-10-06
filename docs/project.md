@@ -521,3 +521,84 @@ it only afterwards as an error, so the aura doesn't point at it.
 - Fast browser steps: `cklxx/laya-browser` picks simple browser actions from
   Cua Driver's semantic snapshot; Claude plans and checks. It solved 20–26% of
   unseen multi-step tasks, so it is a speed path, not a replacement.
+
+## v4: runs with no Claude (`--model laya`, built 2026-10-05)
+
+Victor's call on 2026-10-05: "the goal is to use cua and laya alone... not
+you", because Claude-driven runs were slow (about 50 steps and 5 minutes per
+LinkedIn application). Of the options (flows written in code with Laya for the
+choices, Laya picking every click, or both) he chose **Laya picks every click**.
+
+How a `--model laya` run works, with no API call at all:
+
+1. Cua reads the target window's accessibility tree, without a screenshot.
+   The window is the one whose app the task names, else the frontmost.
+2. deskhand turns its elements into the page format
+   [`cklxx/laya-browser`](https://huggingface.co/cklxx/laya-browser) was trained
+   on (buttons and links to click, fields to fill, plus Scroll down and Press
+   Enter). In a browser, only the visible tab's web page is offered, and only its
+   text: offered the browser's toolbar, the model typed a search into Firefox's
+   address bar, and with the toolbar's words first it never saw its results.
+3. laya-browser (mmBERT-base, 322M, Apache 2.0) picks one operation. It runs on
+   a second local server from Laya's environment (`laya/policy_server.py`, the
+   BRAIN service, port 8791), with the original request format copied
+   byte-for-byte (checked against the original) and the model pinned to one
+   revision. No third-party code runs.
+4. Cua carries it out. Laya can't write, so typed text comes from the task's
+   quoted values and URLs, in order, and a field it returns to gets its text
+   again. When background typing doesn't land (Firefox's page fields under
+   Linux accessibility read back empty), deskhand clicks the field and types
+   real keystrokes.
+5. The run ends at DONE or BLOCKED, at the step limit, or when an action keeps
+   changing nothing ("stuck").
+
+Measured in a sandbox (Firefox, local pages), with each result checked on a
+screenshot:
+
+| Task | Steps | Time | Cost |
+| --- | --- | --- | --- |
+| Search for "deskhand" on a search page | 3 (type, Enter, done) | 13 s | $0 |
+| Click "Delete my account" | 2 (click, done) | 6 s | $0 |
+
+On the Mac (Chrome, Victor's signed-in profile), each checked on a
+screenshot of the Chrome window:
+
+| Task | Steps | Time | Outcome |
+| --- | --- | --- | --- |
+| Search the local search page for "deskhand" | 3 | 24 s | done |
+| Search Google for "cua computer use agent" | 3 | 15 s | done |
+| Search LinkedIn jobs for "software engineer" | 4 | 25 s | search done in 2 steps (99+ results); Laya then near-guessed, so the run stopped as "unsure" |
+
+The Mac tests needed four more fixes:
+- An app name counts when one of its words is in the task: "Chrome" names "Google Chrome".
+- A field Cua names after its contents gets a plain name. On LinkedIn, Laya saw a field called "software engineer" already holding it and retyped it five times. An empty field's placeholder, reported as both name and contents, is treated as empty.
+- A task with a single value reuses it in a second field, because LinkedIn's search box reappears on the results page.
+- Two picks under 0.1 confidence in a row end the run as "unsure". The LinkedIn run then stopped 33 s sooner, without claiming done.
+
+Speedups (2026-10-05, measured on the Mac before and after each):
+
+| Change | Before | After |
+| --- | --- | --- |
+| Typing with no delay between keys (`delay_ms=0`) | 5.1 s for 22 characters | 3.1 s (the rest is Cua's own handling of web pages; setting the value directly never reached the page) |
+| Only on-screen elements, at most 55 clicks and 20 fields | 150 elements, two passes | one pass |
+| Heavy modules loaded only by the commands that use them | 1.7 s to start | 0.65 s |
+| laya-browser's server stays up 2 hours, not 30 minutes | a 13 s reload on the first step after a break | warm |
+| A near-guess (under 0.1) ends the run before it's carried out | stray clicks ("More filters") | none |
+| Text already in a field is submitted, not retyped | Chrome appended a second copy | Enter |
+
+End to end, the Google search went from 15 s to 13 s. The LinkedIn job search
+went from 25 s to 13 s. A warm background process would save about 1 s more,
+not enough to justify a second long-running piece. What remains per step is
+about 1.3–1.5 s of Laya deciding (MPS), Cua's 3 s for typing into a web page,
+and about 1 s for each click, keypress or read.
+
+The same click task with Claude took 7 steps, about a minute and $0.11 to
+$0.25. A decision takes 0.2 to 1 s on the M1 GPU (up to 3 s for the first
+request of a new size); most of the rest is Cua reading and acting.
+
+Limits, from laya-browser's own card and these runs: it finished 20 to 26% of
+multi-step tasks on sites it hadn't seen, its common failure is stopping too
+early, and it writes nothing the task doesn't spell out. Before the fixes above
+it once said DONE on an empty search. Not yet tried on the Mac. Next options: a
+planner mode (Claude writes a short plan once, Laya does the steps, Claude looks
+again only when Laya is stuck), or fine-tuning laya-browser on deskhand's own runs.

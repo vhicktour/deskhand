@@ -44,7 +44,7 @@ turns it off.
 
 ```text
 deskhand run "TASK" [--on sandbox|mac] [--model opus|sonnet|fable]
-                    [--effort low|medium|high|xhigh|max]
+                    [--effort low|medium|high|xhigh|max]   # or --model laya
                     [--max-steps 50] [--max-cost 2.00]
                     [--sandbox NAME] [--keep] [--no-view] [--no-aura]
                     [--guard | --no-guard]
@@ -60,7 +60,10 @@ deskhand doctor               # setup checks
 
 - `--on sandbox` is the default. `--on mac` drives your real apps.
 - `--model opus` (Claude Opus 5.5) is the default; `sonnet` is Claude Sonnet
-  5.5, `fable` is Claude Fable 5.1.
+  5.5, `fable` is Claude Fable 5.1. `--model laya` uses no Claude at all: a
+  local model (laya-browser) picks every action, in about a second, for free.
+  It suits short, specific tasks, and anything it types must be quoted in the
+  task (`search for "deskhand"`). Set it up once with `deskhand laya setup`.
 - A run stops at `--max-steps` model turns or `--max-cost` dollars, whichever
   comes first. Ctrl+C stops it cleanly.
 - `--keep` leaves the sandbox running afterwards; `--sandbox NAME` works in an

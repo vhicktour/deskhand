@@ -1,6 +1,6 @@
 {
   "name": "deskhand",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Computers for Claude Code: Linux desktop sandboxes (up to 3 at once) and this Mac, through deskhand and Cua.",
   "author": {
     "name": "Victor Udeh",

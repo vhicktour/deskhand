@@ -12,7 +12,6 @@ however the run ends, including Ctrl+C.
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
 from typing import Any
 
 import anthropic
@@ -23,7 +22,7 @@ from anthropic.types.beta import BetaMessageParam, BetaToolResultBlockParam, Bet
 from deskhand.bridge import CallGate, driver_tools
 from deskhand.console import ConsoleView
 from deskhand.local_tools import ask_user_tool, shell_tool
-from deskhand.models import ModelSpec, Usage
+from deskhand.models import Limits, ModelSpec, Usage
 from deskhand.prompts import system_prompt
 from deskhand.questions import Ask
 from deskhand.runlog import RunLog, RunSummary
@@ -34,12 +33,6 @@ from deskhand.targets.base import Session
 # on Anthropic's recommended model for that kind of refusal.
 BETAS = ["thinking-display-updates-2026-08-18", "server-side-fallback-2026-07-01"]
 MAX_TOKENS = 32_000
-
-
-@dataclass(frozen=True)
-class Limits:
-    max_steps: int
-    max_cost: float
 
 
 def _describe(exc: Exception) -> str:

@@ -16,30 +16,29 @@ import logging
 import subprocess
 import sys
 from enum import StrEnum
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import typer
-from anthropic import AsyncAnthropic
 from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
-from deskhand import mcp_server, sandboxes, viewer
-from deskhand.agent import Limits, run_task
 from deskhand.console import ConsoleView
-from deskhand.doctor import run_checks
-from deskhand.guard import Guard, approval, set_approval
-from deskhand.laya import cases
+from deskhand.guard import approval, set_approval
 from deskhand.laya import server as laya_server
 from deskhand.laya.client import Calibration, LayaClient
-from deskhand.laya.evaluate import BAR_FALSE_ALARMS, BAR_RECALL, Row, measure
-from deskhand.models import DEFAULT_MODEL, MODELS, ModelAlias, ModelSpec
+from deskhand.models import DEFAULT_MODEL, LAYA_ID, MODELS, Limits, ModelAlias, ModelSpec
 from deskhand.paths import runs_root
 from deskhand.questions import Ask, RunFolderQuestions
 from deskhand.runlog import RunLog, RunSummary, find_run, list_runs, load_summary
 from deskhand.targets import TargetError
-from deskhand.targets.mac import open_mac
-from deskhand.targets.sandbox import open_sandbox
+
+if TYPE_CHECKING:
+    from deskhand.laya.evaluate import Row
+
+# Heavy modules (the Claude SDK, the MCP server, cua-sandbox) are imported inside
+# the commands that use them: loading them all took 1.4 s before every command,
+# and a Laya run on the Mac needs none of them.
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -99,6 +98,8 @@ async def _run(
     if laya is not None:
         try:
             laya_server.start()  # loads while Claude takes its first turn
+            from deskhand.guard import Guard
+
             setting = approval()
             gate = Guard(client=laya, ask=ask, log=log, warn=console.info, approval=setting)
             if setting == "allow":
@@ -108,11 +109,28 @@ async def _run(
         except laya_server.LayaUnavailable as exc:
             console.info(f"The guard is off for this run: {exc}")
     if on is On.mac:
+        from deskhand.targets.mac import open_mac
+
         target = open_mac(aura=aura, log_dir=log.dir)
     else:
+        from deskhand.targets.sandbox import open_sandbox
+
         target = open_sandbox(name=sandbox, keep=keep, view=view, info=console.info)
     try:
         async with target as session:
+            if spec.id == LAYA_ID:  # no Claude: laya-browser picks every action
+                from deskhand.laya_agent import run_laya_task
+
+                return await run_laya_task(
+                    task=task,
+                    session=session,
+                    log=log,
+                    view=console,
+                    max_steps=limits.max_steps,
+                    gate=gate,
+                )
+            from deskhand.agent import run_task
+
             return await run_task(
                 task=task,
                 session=session,
@@ -146,7 +164,10 @@ def run(
     ] = On.sandbox,
     model: Annotated[
         ModelAlias,
-        typer.Option(help="opus: Claude Opus 5.5 · sonnet: Sonnet 5.5 · fable: Fable 5.1."),
+        typer.Option(
+            help="opus: Claude Opus 5.5 · sonnet: Sonnet 5.5 · fable: Fable 5.1 · "
+            "laya: no Claude, the local laya-browser model picks every action (free)."
+        ),
     ] = DEFAULT_MODEL,
     effort: Annotated[
         Effort, typer.Option(help="How much Claude thinks per step.")
@@ -261,6 +282,8 @@ def sandbox_create(
     view: Annotated[bool, typer.Option(help="Show it in the deskhand viewer window.")] = True,
 ) -> None:
     """Start a sandbox that stays until you delete it (or it sits idle 30 minutes)."""
+    from deskhand import sandboxes, viewer
+
     try:
         record = asyncio.run(sandboxes.create(owner))
     except sandboxes.SandboxLimitError as exc:
@@ -274,6 +297,8 @@ def sandbox_create(
 @sandbox_app.command("list")
 def sandbox_list() -> None:
     """List running sandboxes."""
+    from deskhand import sandboxes
+
     alive = set(asyncio.run(sandboxes.running()))
     table = Table("Sandbox", "Owner", "Created", "Last used", box=None, pad_edge=False)
     for r in sandboxes.records():
@@ -287,6 +312,8 @@ def sandbox_rm(
     name: Annotated[str, typer.Argument(help="A name from `deskhand sandbox list`.")],
 ) -> None:
     """Delete a sandbox."""
+    from deskhand import sandboxes
+
     asyncio.run(sandboxes.delete(name))
     Console().print(f"Deleted {escape(name)}.")
 
@@ -296,29 +323,39 @@ def sandbox_url(
     name: Annotated[str, typer.Argument(help="A name from `deskhand sandbox list`.")],
 ) -> None:
     """Print a fresh viewer link for a sandbox (links last an hour)."""
+    from deskhand import sandboxes
+
     Console().print(asyncio.run(sandboxes.viewer_url(name)), soft_wrap=True)
 
 
 @sandbox_app.command("sweep")
 def sandbox_sweep(
     idle_minutes: Annotated[
-        int, typer.Option(min=0, help="Delete sandboxes idle this long.")
-    ] = sandboxes.IDLE_MINUTES,
+        int | None,
+        typer.Option(min=0, help="Delete sandboxes idle this long (default: the 30-minute sweep)."),
+    ] = None,
 ) -> None:
     """Delete idle sandboxes."""
-    for name in asyncio.run(sandboxes.sweep(idle_minutes)):
+    from deskhand import sandboxes
+
+    minutes = sandboxes.IDLE_MINUTES if idle_minutes is None else idle_minutes
+    for name in asyncio.run(sandboxes.sweep(minutes)):
         Console().print(f"Deleted {escape(name)}.")
 
 
 @app.command("viewer")
 def open_viewer() -> None:
     """Open the window that shows running sandboxes."""
+    from deskhand import viewer
+
     viewer.show()
 
 
 @app.command()
 def mcp() -> None:
     """Serve deskhand to Claude Code over MCP (stdio)."""
+    from deskhand import mcp_server
+
     mcp_server.main()
 
 
@@ -326,6 +363,8 @@ def mcp() -> None:
 def doctor() -> None:
     """Check Claude access, Cua Driver, Docker and the aura."""
     out = Console()
+    from deskhand.doctor import run_checks
+
     checks = asyncio.run(run_checks(MODELS[DEFAULT_MODEL]))
     for check in checks:
         mark = "[green]✓[/]" if check.ok else "[red]✗[/]"
@@ -379,7 +418,9 @@ def laya_status() -> None:
     where = (
         f"up on {report.get('device', '?')}" if report else "stopped (starts when a check needs it)"
     )
-    out.print(f"Server: {where}")
+    out.print(f"Guard server: {where}")
+    brain = laya_server.running(laya_server.BRAIN)
+    out.print(f"laya-browser (--model laya): {'up' if brain else 'stopped (starts with a run)'}")
     calibration = Calibration.load()
     if not calibration.fits:
         out.print("Not measured yet. Run: deskhand laya eval")
@@ -396,13 +437,16 @@ def laya_status() -> None:
 
 @laya_app.command("stop")
 def laya_stop() -> None:
-    """Stop the Laya server now (it also stops by itself after 30 idle minutes)."""
-    Console().print("Stopping Laya." if laya_server.stop() else "Laya isn't running.")
+    """Stop the Laya servers now (they also stop by themselves after 30 idle minutes)."""
+    out = Console()
+    for service in laya_server.SERVICES.values():
+        stopped = laya_server.stop(service)
+        out.print(f"{service.title}: {'stopping' if stopped else 'not running'}")
 
 
 @laya_app.command("serve", hidden=True)
-def laya_serve() -> None:
-    laya_server.serve()
+def laya_serve(service: Annotated[str, typer.Option()] = laya_server.GUARD.name) -> None:
+    laya_server.serve(laya_server.SERVICES[service])
 
 
 @laya_app.command("cases")
@@ -413,6 +457,10 @@ def laya_cases(
     ] = DEFAULT_MODEL,
 ) -> None:
     """Collect guard cases from past runs and have Claude label the new ones."""
+    from anthropic import AsyncAnthropic
+
+    from deskhand.laya import cases
+
     out = Console()
     rows, added = cases.collect(runs_root())
     todo = sum(row.get("label") is None for row in rows)
@@ -430,6 +478,9 @@ def laya_cases(
 
 
 async def _measure_all(client: LayaClient) -> tuple[Calibration, list[Row]]:
+    from deskhand.laya import cases
+    from deskhand.laya.evaluate import measure
+
     try:
         return await measure(cases.synthetic_cases() + cases.labelled_run_cases(), client)
     finally:
@@ -439,6 +490,8 @@ async def _measure_all(client: LayaClient) -> tuple[Calibration, list[Row]]:
 @laya_app.command("eval")
 def laya_eval() -> None:
     """Measure Laya on the labelled cases and fit the guard's thresholds."""
+    from deskhand.laya.evaluate import BAR_FALSE_ALARMS, BAR_RECALL
+
     out = Console()
     try:
         calibration, rows = asyncio.run(_measure_all(LayaClient(timeout_s=60)))

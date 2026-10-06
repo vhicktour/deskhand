@@ -100,7 +100,8 @@ async def task_start(
     runs in the named sandbox (left running afterwards so you can inspect it) or,
     without one, in a fresh sandbox deleted at the end. on="mac" drives this Mac's
     real apps with an orange glow on the window being worked on: only when the user
-    asked for something on their Mac. model is opus (default), sonnet or fable. The
+    asked for something on their Mac. model is opus (default), sonnet, fable, or laya (no
+    Claude: a local model picks every action; fast and free, short tasks only). The
     run stops at max_steps model turns or max_cost dollars. guard (Laya checks each
     action and asks the user before anything hard to undo) is on by default for
     the Mac once `deskhand laya eval` has passed; true or false overrides that.

@@ -12,11 +12,12 @@ failures into errors Claude can read and recover from.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
-from anthropic.lib.tools import BetaAsyncFunctionTool, ToolError
-from anthropic.lib.tools.mcp import async_mcp_tool
 from mcp.types import CallToolResult, ListToolsResult, TextContent, Tool
+
+if TYPE_CHECKING:  # the Claude SDK takes about 0.5 s to load; Laya runs never need it
+    from anthropic.lib.tools import BetaAsyncFunctionTool
 
 # The driver tools useful for doing tasks: observing, input, apps and windows,
 # and the browser. Left out: session and recording plumbing, cursor styling,
@@ -157,6 +158,8 @@ class DriverBridge:
             message = f"{name} failed: {exc}"
             for hook in self._hooks:
                 await hook.after_call(name, args, None, message)
+            from anthropic.lib.tools import ToolError
+
             raise ToolError(message) from exc
         if self._gate:
             result = await self._gate.review(name, args, result)
@@ -178,6 +181,21 @@ async def list_driver_tools(client: DriverClient) -> list[Tool]:
     return sorted(tools, key=lambda t: t.name)
 
 
+def _session_tools(tools: Sequence[Tool]) -> frozenset[str]:
+    return frozenset(t.name for t in tools if "session" in t.input_schema.get("properties", {}))
+
+
+async def driver_bridge(
+    client: DriverClient,
+    hooks: Sequence[CallHook],
+    session: str | None = None,
+    gate: CallGate | None = None,
+) -> DriverBridge:
+    """A hooked bridge for code that calls the driver itself (the Laya loop)."""
+    tools = await list_driver_tools(client)
+    return DriverBridge(client, hooks, session, _session_tools(tools), gate)
+
+
 async def driver_tools(
     client: DriverClient,
     hooks: Sequence[CallHook],
@@ -185,9 +203,8 @@ async def driver_tools(
     gate: CallGate | None = None,
 ) -> list[BetaAsyncFunctionTool[Any]]:
     """Claude tools for the target's driver, calling through a hooked bridge."""
+    from anthropic.lib.tools.mcp import async_mcp_tool
+
     tools = await list_driver_tools(client)
-    session_tools = frozenset(
-        t.name for t in tools if "session" in t.input_schema.get("properties", {})
-    )
-    bridge = cast(Any, DriverBridge(client, hooks, session, session_tools, gate))
+    bridge = cast(Any, DriverBridge(client, hooks, session, _session_tools(tools), gate))
     return [async_mcp_tool(tool, bridge) for tool in tools]

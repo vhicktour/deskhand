@@ -1,6 +1,7 @@
-"""The Claude models deskhand can run, their prices, and what a run has cost so far.
+"""The models deskhand can run, their prices, and what a run has cost so far.
 
-The CLI takes a short alias (opus, sonnet, fable); everything else works with a
+The CLI takes a short alias (opus, sonnet, fable, or laya: no Claude at all, the
+local laya-browser model picks each action, free). Everything else works with a
 ModelSpec. Prices are US dollars per million tokens from Anthropic's price list
 as of 2026-10-05 and drive the per-run cost cap, so update them here when they
 change. Cache writes use the 5-minute rate (1.25x input), which is what
@@ -18,6 +19,15 @@ class ModelAlias(StrEnum):
     opus = "opus"
     sonnet = "sonnet"
     fable = "fable"
+    laya = "laya"
+
+
+@dataclass(frozen=True)
+class Limits:
+    """When a run stops: after max_steps turns or once it has cost max_cost dollars."""
+
+    max_steps: int
+    max_cost: float
 
 
 @dataclass(frozen=True)
@@ -33,7 +43,9 @@ MODELS: dict[ModelAlias, ModelSpec] = {
     ModelAlias.opus: ModelSpec("claude-opus-5-5", 4.00, 20.00, 5.00, 0.20),
     ModelAlias.sonnet: ModelSpec("claude-sonnet-5-5", 2.00, 10.00, 2.50, 0.20),
     ModelAlias.fable: ModelSpec("claude-fable-5-1", 10.00, 50.00, 12.50, 0.25),
+    ModelAlias.laya: ModelSpec("laya-browser", 0.0, 0.0, 0.0, 0.0),
 }
+LAYA_ID = MODELS[ModelAlias.laya].id
 DEFAULT_MODEL = ModelAlias.opus
 
 

@@ -16,7 +16,9 @@ deskhand gives you computers. Its MCP server (`deskhand`) has two kinds of tools
   (Claude Opus 5.5 by default) in a sandbox or on this Mac, in the background;
   `task_status` checks on it (pass `wait_s` to wait up to 10 minutes);
   `task_answer` answers a run that is `waiting` on a question; `task_stop`
-  stops it.
+  stops it. `model="laya"` uses no Claude: a local model picks every action,
+  fast and free, but only for short, specific tasks (quote any text it must
+  type); it finishes far fewer multi-step tasks than Claude.
 
 ## Which to use
 
